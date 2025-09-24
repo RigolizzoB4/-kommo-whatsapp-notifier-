@@ -4,12 +4,13 @@
  */
 
 class KommoWhatsAppNotifier {
-  constructor(wsUrl) {
+  constructor(wsUrl, options = {}) {
     this.wsUrl = wsUrl || `ws://${window.location.host}/ws`;
     this.ws = null;
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 5;
     this.reconnectDelay = 1000;
+    this.toastDuration = options.toastDuration || 6000;
     
     this.init();
   }
@@ -21,9 +22,9 @@ class KommoWhatsAppNotifier {
 
   createToastContainer() {
     // Create toast container if it doesn't exist
-    if (!document.getElementById('toast-container')) {
+    if (!document.getElementById('kommo-toast-container')) {
       const container = document.createElement('div');
-      container.id = 'toast-container';
+      container.id = 'kommo-toast-container';
       container.style.cssText = `
         position: fixed;
         top: 20px;
@@ -31,6 +32,7 @@ class KommoWhatsAppNotifier {
         z-index: 10000;
         width: 350px;
         max-width: 90vw;
+        pointer-events: none;
       `;
       document.body.appendChild(container);
     }
@@ -68,7 +70,6 @@ class KommoWhatsAppNotifier {
     switch (data.type) {
       case 'welcome':
         console.log('Welcome message received');
-        this.showToast('🔔 WhatsApp Notifier Connected', 'Connected to real-time notifications', 'success');
         break;
       
       case 'whatsapp_message':
@@ -87,14 +88,13 @@ class KommoWhatsAppNotifier {
     this.showToast(
       `💬 ${from}`,
       `${text}\n${timestamp}`,
-      'whatsapp',
-      7000 // Show for 7 seconds
+      'whatsapp'
     );
   }
 
-  showToast(title, message, type = 'info', duration = 5000) {
+  showToast(title, message, type = 'info') {
     const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
+    toast.className = `kommo-toast kommo-toast-${type}`;
     
     const colors = {
       success: '#28a745',
@@ -107,42 +107,77 @@ class KommoWhatsAppNotifier {
     toast.style.cssText = `
       background: white;
       border-left: 4px solid ${colors[type] || colors.info};
-      border-radius: 4px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      margin-bottom: 10px;
-      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+      margin-bottom: 12px;
+      padding: 16px;
       position: relative;
       transform: translateX(100%);
-      transition: transform 0.3s ease;
+      transition: transform 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
       word-wrap: break-word;
+      pointer-events: auto;
+      max-width: 100%;
+      animation: slideIn 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
     `;
 
     toast.innerHTML = `
-      <div style="font-weight: bold; margin-bottom: 5px; color: #333;">
+      <div style="font-weight: 600; margin-bottom: 8px; color: #333; font-size: 14px;">
         ${this.escapeHtml(title)}
       </div>
-      <div style="color: #666; white-space: pre-line; line-height: 1.4;">
+      <div style="color: #666; white-space: pre-line; line-height: 1.4; font-size: 13px;">
         ${this.escapeHtml(message)}
       </div>
       <button onclick="this.parentElement.remove()" style="
         position: absolute;
-        top: 5px;
-        right: 10px;
+        top: 8px;
+        right: 12px;
         background: none;
         border: none;
         font-size: 18px;
         cursor: pointer;
         color: #999;
         padding: 0;
-        width: 20px;
-        height: 20px;
+        width: 24px;
+        height: 24px;
         display: flex;
         align-items: center;
         justify-content: center;
-      ">&times;</button>
+        border-radius: 50%;
+        transition: all 0.2s;
+      " onmouseover="this.style.backgroundColor='#f5f5f5'; this.style.color='#333';" 
+         onmouseout="this.style.backgroundColor='transparent'; this.style.color='#999';">&times;</button>
     `;
 
-    const container = document.getElementById('toast-container');
+    // Add CSS animation keyframes if not already added
+    if (!document.getElementById('kommo-toast-styles')) {
+      const style = document.createElement('style');
+      style.id = 'kommo-toast-styles';
+      style.textContent = `
+        @keyframes slideIn {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+        @keyframes slideOut {
+          from {
+            transform: translateX(0);
+            opacity: 1;
+          }
+          to {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    const container = document.getElementById('kommo-toast-container');
     container.appendChild(toast);
 
     // Animate in
@@ -150,15 +185,15 @@ class KommoWhatsAppNotifier {
       toast.style.transform = 'translateX(0)';
     }, 10);
 
-    // Auto remove
+    // Auto remove after duration
     setTimeout(() => {
       this.removeToast(toast);
-    }, duration);
+    }, this.toastDuration);
   }
 
   removeToast(toast) {
     if (toast.parentElement) {
-      toast.style.transform = 'translateX(100%)';
+      toast.style.animation = 'slideOut 0.3s ease-in-out';
       setTimeout(() => {
         if (toast.parentElement) {
           toast.remove();
@@ -183,7 +218,6 @@ class KommoWhatsAppNotifier {
       }, this.reconnectDelay * this.reconnectAttempts);
     } else {
       console.error('Max reconnection attempts reached');
-      this.showToast('❌ Connection Lost', 'Failed to reconnect to WhatsApp notifier', 'error');
     }
   }
 

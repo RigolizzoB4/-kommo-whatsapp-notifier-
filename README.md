@@ -1,219 +1,273 @@
 # Kommo WhatsApp Notifier 🔔
 
-Real-time notification system that receives Kommo CRM webhooks, filters messages from the WhatsApp Lite channel, and shows pop-up (toast) notifications on the frontend via WebSocket.
+Real-time notification system that receives Kommo CRM webhooks, filters messages from the WhatsApp channel, and displays pop-up toast notifications on the frontend via WebSocket.
 
-**Architecture:** Kommo (webhook) → POST /webhook → channel filter → WebSocket broadcast (/ws) → client.js (toasts) → user sees popup.
+## 🏗️ Architecture
 
-## 📋 Descrição
+```
+Kommo CRM → POST /webhook → Channel Filter → WebSocket /ws → Client Toast Notifications
+```
 
-Este serviço recebe webhooks do Kommo CRM para eventos `message.received`, filtra apenas mensagens do canal WhatsApp e as transmite em tempo real via WebSocket para clientes conectados que exibem notificações toast.
+**Flow:**
+1. Kommo CRM sends webhook events to `/webhook` endpoint
+2. Server filters for `message.received` events from WhatsApp channel
+3. Valid messages are broadcast via WebSocket to all connected clients
+4. Frontend clients display toast notifications with slide-in animations
 
-## 🚀 Funcionalidades
+## 🚀 Features
 
-- ✅ **Webhook Endpoint** (`POST /webhook`) - Recebe eventos do Kommo CRM
-- ✅ **Filtragem Inteligente** - Processa apenas eventos `type === "message.received"` 
-- ✅ **Filtro de Canal** - Apenas mensagens onde `event.data.channel === WHATSAPP_CHANNEL_KEY`
-- ✅ **WebSocket em Tempo Real** - Broadcasting via WebSocket em `/ws`
-- ✅ **Notificações Toast** - Cliente JavaScript com pop-ups automáticos
-- ✅ **Verificação de Assinatura** - HMAC SHA256 opcional para segurança
-- ✅ **Variáveis de Ambiente** - Configuração flexível
+- **Modular Architecture**: Separated into `src/server.js`, `src/webhook.js`, and `src/websocket.js`
+- **Real-time WebSocket**: Instant notifications via WebSocket at `/ws` path
+- **Smart Filtering**: Only processes WhatsApp channel messages (`WHATSAPP_CHANNEL_KEY`)
+- **Signature Verification**: Optional HMAC SHA256 security with `WEBHOOK_SECRET`
+- **CORS Protection**: Configurable allowed origins via `ALLOWED_ORIGINS`
+- **Toast Notifications**: Beautiful slide-in notifications with auto-dismiss
+- **Embeddable Script**: `snippet-embed.js` for external websites
+- **Auto-reconnection**: WebSocket clients automatically reconnect on disconnect
 
-## 📦 Instalação
+## 📦 Installation
 
-### Pré-requisitos
-- Node.js (versão 14 ou superior)
-- npm ou yarn
+### Prerequisites
+- Node.js 16+ 
+- npm or yarn
 
-### Passos
-1. Clone o repositório
+### Setup
 ```bash
+# Clone repository
 git clone https://github.com/RigolizzoB4/-kommo-whatsapp-notifier-.git
 cd -kommo-whatsapp-notifier-
-```
 
-2. Instale as dependências
-```bash
+# Install dependencies
 npm install
-```
 
-3. Configure as variáveis de ambiente (opcional)
-```bash
-export WHATSAPP_CHANNEL_KEY=whatsapp_lite
-export WEBHOOK_SECRET=your_secret_key
-export PORT=3000
-```
+# Copy environment configuration
+cp .env.example .env
 
-4. Inicie o servidor
-```bash
+# Edit .env with your settings
+nano .env
+
+# Start development server
+npm run dev
+
+# Or start production server
 npm start
 ```
 
-O servidor estará disponível em `http://localhost:3000`
+## ⚙️ Environment Variables
 
-## 🔧 Configuração
+Create a `.env` file based on `.env.example`:
 
-### Variáveis de Ambiente
-- `PORT`: Porta do servidor (padrão: 3000)
-- `WHATSAPP_CHANNEL_KEY`: Canal WhatsApp a filtrar (padrão: whatsapp_lite)
-- `WEBHOOK_SECRET`: Chave secreta para verificação HMAC SHA256 (opcional)
+```env
+# Server Configuration
+PORT=3000
 
-### Exemplo
-```bash
-WHATSAPP_CHANNEL_KEY=whatsapp_lite WEBHOOK_SECRET=my_secret PORT=8080 npm start
+# CORS Configuration - comma-separated allowed origins
+ALLOWED_ORIGINS=http://localhost:3000,https://yourdomain.com
+
+# Webhook Security (optional)
+WEBHOOK_SECRET=your_webhook_secret_here
+
+# WhatsApp Channel Filter
+WHATSAPP_CHANNEL_KEY=whatsapp_lite
 ```
 
 ## 📡 API Endpoints
 
 ### POST /webhook
-Recebe eventos do Kommo CRM e filtra mensagens do WhatsApp.
+Receives Kommo CRM webhook events.
 
-**Critérios de Filtragem:**
-- `event.type === "message.received"` ✓
-- `event.data.channel === WHATSAPP_CHANNEL_KEY` ✓
-
-**Payload esperado:**
+**Request Format:**
 ```json
 {
-  "type": "message.received", 
+  "type": "message.received",
   "data": {
-    "id": "12345",
-    "from": "João Silva", 
-    "text": "Mensagem do cliente",
+    "id": "msg_12345",
+    "contact_name": "John Doe",
+    "contact_id": "contact_67890", 
+    "text": "Hello from customer",
     "channel": "whatsapp_lite",
-    "timestamp": 1632150000000
+    "timestamp": 1640995200000
   }
 }
 ```
 
-**Respostas:**
-- ✅ `200 { "status": "ok", "received": true }` - Mensagem processada
-- 🔍 `200 { "filtered_out": true }` - Canal incorreto
-- ❌ `200 { "ignored": true }` - Tipo de evento incorreto
-- 🔐 `401 { "error": "Unauthorized: Invalid signature" }` - Assinatura inválida
+**Responses:**
+- `200 { "status": "ok", "received": true }` - Message processed and broadcast
+- `200 { "filtered_out": true }` - Wrong channel, message filtered
+- `200 { "ignored": true }` - Wrong event type, ignored
+- `401 { "error": "Unauthorized: Invalid signature" }` - Invalid signature
+- `500 { "status": "error", "message": "..." }` - Server error
 
-**Verificação de Assinatura (Opcional):**
-Se `WEBHOOK_SECRET` estiver configurado:
-- Compute HMAC SHA256 do JSON body
-- Compare com header `x-signature`
-- Retorna 401 se não coincidir
+**Optional Signature Verification:**
+If `WEBHOOK_SECRET` is set, include HMAC SHA256 signature in `x-signature` header:
+```bash
+signature=$(echo -n '{"type":"message.received",...}' | openssl dgst -sha256 -hmac "your_secret" -hex)
+curl -H "x-signature: $signature" -d '...' /webhook
+```
 
 ### GET /health
-Retorna status do servidor e clientes conectados.
+Health check with server status.
 
-### GET /
-Informações sobre o serviço e configuração.
+### GET /api  
+Service information and configuration.
 
 ### WebSocket /ws
-Conecte-se para receber mensagens em tempo real.
+Real-time message broadcasting.
 
-**URL:** `ws://localhost:3000/ws`
-
-**Mensagens recebidas:**
+**Messages Received:**
 ```json
-// Mensagem de boas-vindas
-{ "type": "welcome", "ts": 1632150000000 }
+// Welcome message on connection
+{ "type": "welcome", "ts": 1640995200000 }
 
-// Mensagem do WhatsApp  
+// WhatsApp message notification
 {
-  "type": "whatsapp_message",
+  "type": "whatsapp_message", 
   "data": {
-    "id": "12345",
-    "from": "João Silva", 
-    "text": "Mensagem do cliente",
-    "at": 1632150000000
+    "id": "msg_12345",
+    "from": "John Doe",
+    "text": "Hello from customer", 
+    "at": 1640995200000
   }
 }
 ```
 
-## 🎯 Cliente JavaScript (Toast Notifications)
+## 🧪 Testing
 
-### Uso Básico
+### cURL Test Examples
+
+**Send WhatsApp message (will be processed):**
+```bash
+curl -X POST http://localhost:3000/webhook \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "message.received",
+    "data": {
+      "id": "test_123",
+      "contact_name": "Test Customer",
+      "text": "Hello from WhatsApp!",
+      "channel": "whatsapp_lite",
+      "timestamp": '$(date +%s000)'
+    }
+  }'
+```
+
+**Send non-WhatsApp message (will be filtered):**
+```bash
+curl -X POST http://localhost:3000/webhook \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "message.received", 
+    "data": {
+      "id": "test_456",
+      "contact_name": "Email Customer",
+      "text": "Hello from email!",
+      "channel": "email",
+      "timestamp": '$(date +%s000)'
+    }
+  }'
+```
+
+**Test with signature verification:**
+```bash
+# Generate signature
+payload='{"type":"message.received","data":{"id":"test","text":"hello","channel":"whatsapp_lite"}}'
+signature=$(echo -n "$payload" | openssl dgst -sha256 -hmac "your_secret" -hex | cut -d' ' -f2)
+
+curl -X POST http://localhost:3000/webhook \
+  -H "Content-Type: application/json" \
+  -H "x-signature: $signature" \
+  -d "$payload"
+```
+
+### Frontend Testing
+
+1. **Main Interface**: Visit `http://localhost:3000/` for interactive demo
+2. **Test Client**: Visit `http://localhost:3000/test-client.html` for debugging
+3. **WebSocket Connection**: Check browser DevTools Network tab for WebSocket `/ws`
+
+## 🎨 Frontend Integration
+
+### Option 1: Include Client Script
 ```html
-<script src="client.js"></script>
+<script src="http://localhost:3000/client.js"></script>
+<!-- Toast notifications will appear automatically -->
+```
+
+### Option 2: Embeddable Snippet (External Sites)
+```html
+<!-- For same domain -->
+<script src="http://localhost:3000/snippet-embed.js"></script>
+
+<!-- For different domain -->
 <script>
-  // Inicialização automática - as notificações toast aparecerão automaticamente
+  window.KOMMO_NOTIFIER_HOST = 'wss://your-websocket-server.com';
 </script>
+<script src="http://localhost:3000/snippet-embed.js"></script>
 ```
 
-### Uso Avançado
+### Option 3: Custom WebSocket Client
 ```javascript
-const notifier = new KommoWhatsAppNotifier('ws://localhost:3000/ws');
+const ws = new WebSocket('ws://localhost:3000/ws');
 
-// As notificações aparecerão automaticamente no canto superior direito
-// Personalizar comportamento se necessário:
-notifier.showToast('Título', 'Mensagem', 'success', 5000);
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  
+  if (data.type === 'whatsapp_message') {
+    const { from, text, at } = data.data;
+    console.log(`New WhatsApp message from ${from}: ${text}`);
+    // Show your custom notification
+  }
+};
 ```
 
-## 🧪 Demonstração e Teste
+## 🔧 Kommo CRM Configuration
 
-### 1. Interface de Demonstração
-Acesse `http://localhost:3000/demo.html` para:
-- ✅ Ver status da conexão WebSocket
-- ✅ Enviar mensagens de teste
-- ✅ Visualizar notificações toast em tempo real
+1. Go to Kommo CRM → Settings → Webhooks
+2. Add new webhook:
+   - **URL**: `http://your-server:3000/webhook`  
+   - **Event**: `message.received`
+   - **Channel**: Configure as `whatsapp_lite` (or your `WHATSAPP_CHANNEL_KEY`)
+3. Optional: Set webhook secret for signature verification
+4. Save configuration
 
-### 2. Interface de Teste Técnico  
-Acesse `http://localhost:3000/test-client.html` para:
-- ✅ Testar conectividade WebSocket
-- ✅ Ver logs detalhados
-- ✅ Enviar payloads customizados
+## 📁 Project Structure
 
-### 3. Teste via cURL
+```
+├── src/
+│   ├── server.js      # Express server + WebSocket setup
+│   ├── webhook.js     # Webhook handling + filtering logic  
+│   └── websocket.js   # WebSocket connection management
+├── public/
+│   ├── index.html     # Main demo interface
+│   ├── client.js      # WebSocket client with toast notifications
+│   ├── snippet-embed.js  # Embeddable script for external sites
+│   └── test-client.html   # Technical testing interface
+├── .env.example       # Environment variables template
+├── package.json       # Dependencies and scripts
+└── README.md         # This file
+```
 
-**Mensagem WhatsApp (será processada):**
+## 🚦 Development Scripts
+
 ```bash
-curl -X POST -H "Content-Type: application/json" \
-  -d '{"type":"message.received","data":{"id":"12345","from":"João Silva","text":"Olá!","channel":"whatsapp_lite","timestamp":1632150000000}}' \
-  http://localhost:3000/webhook
+npm run dev     # Start with nodemon (auto-restart)
+npm start       # Start production server
+npm test        # Run tests (not implemented yet)
 ```
 
-**Mensagem de outro canal (será filtrada):**
-```bash
-curl -X POST -H "Content-Type: application/json" \
-  -d '{"type":"message.received","data":{"id":"54321","from":"Maria","text":"Email","channel":"email","timestamp":1632150000000}}' \
-  http://localhost:3000/webhook
-```
+## 🔮 Next Steps
 
-**Com verificação de assinatura:**
-```bash
-# Calcular HMAC SHA256
-SIGNATURE=$(echo -n '{"type":"message.received","data":{"id":"test"}}' | openssl dgst -sha256 -hmac "your_secret" -hex | cut -d' ' -f2)
+1. **Database Integration**: Store message history in PostgreSQL/MongoDB
+2. **User Authentication**: Add user accounts and message filtering by user
+3. **Message Templates**: Support for rich message templates and attachments
+4. **Analytics Dashboard**: Real-time metrics and message statistics
+5. **Mobile App**: React Native app for mobile notifications
+6. **Slack Integration**: Forward messages to Slack channels
+7. **Email Notifications**: Fallback email notifications when WebSocket is offline
+8. **Message Queueing**: Redis/Bull for reliable message processing
+9. **Load Balancing**: Multiple server instances with shared WebSocket state
+10. **Docker Deployment**: Containerized deployment with docker-compose
 
-curl -X POST -H "Content-Type: application/json" -H "x-signature: $SIGNATURE" \
-  -d '{"type":"message.received","data":{"id":"test"}}' \
-  http://localhost:3000/webhook
-```
-
-## 📊 Configuração no Kommo CRM
-
-1. Acesse as configurações de Webhooks no Kommo CRM
-2. Configure o endpoint: `http://seu-servidor:3000/webhook`
-3. Selecione o evento: `message.received`
-4. Configure o canal como `whatsapp_lite` (ou seu valor de `WHATSAPP_CHANNEL_KEY`)
-5. (Opcional) Configure assinatura HMAC SHA256 com sua `WEBHOOK_SECRET`
-6. Salve a configuração
-
-## 🛠️ Desenvolvimento
-
-### Scripts
-- `npm start`: Inicia o servidor
-- `npm run dev`: Inicia o servidor (mesmo que start)
-
-### Estrutura do Projeto
-```
-├── index.js              # Servidor principal (Express + WebSocket)
-├── client.js             # Cliente JavaScript para toast notifications  
-├── demo.html             # Interface de demonstração
-├── test-client.html      # Interface de teste técnico
-├── package.json          # Configurações e dependências
-└── README.md            # Documentação
-```
-
-### Fluxo de Dados
-```
-Kommo CRM → POST /webhook → Filtros → WebSocket /ws → client.js → Toast Popup
-```
-
-## 📄 Licença
+## 📜 License
 
 ISC

@@ -1,18 +1,24 @@
 {
   "name": "-kommo-whatsapp-notifier-",
   "version": "1.0.0",
-  "description": "integração Kommo CRM + WhatsApp Lite",
-  "main": "index.js",
+  "description": "Real-time notification system for Kommo CRM WhatsApp messages",
+  "main": "src/server.js",
+  "type": "module",
   "scripts": {
-    "start": "node index.js",
-    "dev": "node index.js",
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
+  "keywords": ["kommo", "whatsapp", "webhook", "notifications", "websocket"],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "express": "^5.1.0",
-    "ws": "^8.18.3"
+    "ws": "^8.18.3",
+    "dotenv": "^16.4.5",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.7"
   }
 }
