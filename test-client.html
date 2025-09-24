@@ -91,7 +91,7 @@
         const disconnectBtn = document.getElementById('disconnectBtn');
 
         function connect() {
-            const wsUrl = `ws://${window.location.host}`;
+            const wsUrl = `ws://${window.location.host}/ws`;
             ws = new WebSocket(wsUrl);
             
             ws.onopen = function() {
@@ -104,7 +104,13 @@
             
             ws.onmessage = function(event) {
                 const data = JSON.parse(event.data);
-                addMessage('whatsapp', data);
+                if (data.type === 'welcome') {
+                    addMessage('system', `Welcome message received (ts: ${data.ts})`);
+                } else if (data.type === 'whatsapp_message') {
+                    addMessage('whatsapp', data.data);
+                } else {
+                    addMessage('system', `Unknown message type: ${JSON.stringify(data)}`);
+                }
             };
             
             ws.onclose = function() {
@@ -135,10 +141,10 @@
             if (type === 'whatsapp') {
                 messageDiv.innerHTML = `
                     <div class="timestamp">${timestamp} - WhatsApp Message</div>
-                    <strong>Contact:</strong> ${data.contact?.name || 'Unknown'} (ID: ${data.contact?.id || 'N/A'})<br>
-                    <strong>Message:</strong> ${data.message?.text || 'No text'}<br>
-                    <strong>Type:</strong> ${data.message?.type || 'unknown'}<br>
-                    <strong>Source:</strong> ${data.source}
+                    <strong>ID:</strong> ${data.id}<br>
+                    <strong>From:</strong> ${data.from}<br>
+                    <strong>Text:</strong> ${data.text}<br>
+                    <strong>At:</strong> ${new Date(data.at).toLocaleString()}
                 `;
             } else if (type === 'system') {
                 messageDiv.innerHTML = `
@@ -163,14 +169,13 @@
 
         async function sendTestMessage() {
             const testPayload = {
-                event: 'message.received',
+                type: 'message.received',
                 data: {
                     id: '12345',
-                    contact_id: '67890',
-                    contact_name: 'João Silva',
+                    from: 'João Silva',
                     text: 'Olá! Esta é uma mensagem de teste do WhatsApp.',
-                    type: 'text',
-                    source: 'whatsapp_lite'
+                    channel: 'whatsapp_lite',
+                    timestamp: Date.now()
                 }
             };
 
@@ -183,10 +188,11 @@
                     body: JSON.stringify(testPayload)
                 });
                 
+                const result = await response.json();
                 if (response.ok) {
-                    addMessage('system', 'Test WhatsApp message sent to webhook');
+                    addMessage('system', `Test WhatsApp message sent. Response: ${JSON.stringify(result)}`);
                 } else {
-                    addMessage('error', 'Failed to send test message');
+                    addMessage('error', `Failed to send test message: ${JSON.stringify(result)}`);
                 }
             } catch (error) {
                 addMessage('error', 'Error sending test message: ' + error);
@@ -195,14 +201,13 @@
 
         async function sendTestNonWhatsApp() {
             const testPayload = {
-                event: 'message.received',
+                type: 'message.received',
                 data: {
                     id: '54321',
-                    contact_id: '98765',
-                    contact_name: 'Maria Santos',
+                    from: 'Maria Santos',
                     text: 'Esta mensagem não é do WhatsApp.',
-                    type: 'text',
-                    source: 'email'
+                    channel: 'email',
+                    timestamp: Date.now()
                 }
             };
 
@@ -215,10 +220,11 @@
                     body: JSON.stringify(testPayload)
                 });
                 
+                const result = await response.json();
                 if (response.ok) {
-                    addMessage('system', 'Test non-WhatsApp message sent to webhook (should be filtered)');
+                    addMessage('system', `Test non-WhatsApp message sent. Response: ${JSON.stringify(result)}`);
                 } else {
-                    addMessage('error', 'Failed to send test message');
+                    addMessage('error', `Failed to send test message: ${JSON.stringify(result)}`);
                 }
             } catch (error) {
                 addMessage('error', 'Error sending test message: ' + error);
