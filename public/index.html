@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kommo WhatsApp Notifier</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📱 Kommo WhatsApp Notifier</h1>
+            <p>Sistema de notificações em tempo real para mensagens do WhatsApp Lite via Kommo CRM</p>
+        </header>
+
+        <div class="status-panel">
+            <div class="status-item">
+                <span class="status-label">Status da conexão:</span>
+                <span id="connection-status" class="status-value offline">Desconectado</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Último ping:</span>
+                <span id="last-ping" class="status-value">-</span>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button id="connect-btn" class="btn btn-primary">Conectar</button>
+            <button id="test-btn" class="btn btn-secondary">Testar Notificação</button>
+            <button id="clear-btn" class="btn btn-outline">Limpar Histórico</button>
+        </div>
+
+        <div class="messages-panel">
+            <h2>📋 Histórico de Mensagens</h2>
+            <div id="messages-container">
+                <p class="no-messages">Nenhuma mensagem recebida ainda. Aguardando notificações...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Popup -->
+    <div id="notification-popup" class="notification-popup hidden">
+        <div class="popup-content">
+            <div class="popup-header">
+                <div class="popup-title">
+                    <span class="whatsapp-icon">💬</span>
+                    <span>Nova mensagem WhatsApp</span>
+                </div>
+                <button id="close-popup" class="close-btn">&times;</button>
+            </div>
+            <div class="popup-body">
+                <div class="contact-info">
+                    <strong id="popup-contact-name">Nome do Contato</strong>
+                    <span id="popup-contact-phone" class="phone">+55 11 99999-9999</span>
+                </div>
+                <div class="message-preview">
+                    <p id="popup-message-text">Texto da mensagem aparece aqui...</p>
+                </div>
+                <div class="popup-timestamp">
+                    <small id="popup-timestamp">há alguns segundos</small>
+                </div>
+            </div>
+            <div class="popup-actions">
+                <button id="open-chat-btn" class="btn btn-primary">
+                    🚀 Abrir no Kommo
+                </button>
+                <button id="dismiss-btn" class="btn btn-outline">
+                    Dispensar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Sound -->
+    <audio id="notification-sound" preload="auto">
+        <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwjBjiX2fGzeSMFnwA=" type="audio/wav">
+    </audio>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
